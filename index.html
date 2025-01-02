@@ -40,38 +40,65 @@
         }
         canvas {
             touch-action: none;
+            user-select: none;
             flex: 1;
         }
     </style>
+</head>
+<body onload="brython (0)">
     <div id="header">
         <h1 style="font-size: 24px;">Physics Experiment</h1>
-        <button id="connect">Connect</button>
-        <p style="flex: 1; font-family: monospace;" id="status">Connected: False</p>
+        <button id="export">Export</button>
+        <p style="flex: 1; font-family: monospace;" id="status"></p>
     </div>
     <canvas id="canvas"></canvas>
     <script type = "text/python">
         from browser import aio, ajax, document, html, window
+        global canvas, ctx, pointer
+        canvas = document ["canvas"]
+        ctx = canvas.getContext ("2d")
+        pointer = False
 
-        async def connect (ev):
-            port = await window.navigator.serial.requestPort ()
-            await port.open ({
-                "baudRate": 115200,
-                "dataBits": 8,
-                "stopBits": 1,
-                "parity": "none",
-                "bufferSize": 1048576,
-                "flowControl": "none"
-            })
-            reader = port.readable.getReader ()
+        canvas.attrs ["width"] = canvas.getBoundingClientRect ().width
+        canvas.attrs ["height"] = canvas.getBoundingClientRect ().height
+        ctx.lineWidth = 2
+        ctx.linecap = "round"
+        ctx.strokeStyle = "black"
 
-            while True:
-                value, done = await reader.read ()
-                window.console.log (value)
-                if done:
-                    reader.releaseLock ()
-                    break
-            window.console.log (value)
+        def getMousePos (ev):
+            global canvas
+            rect = canvas.getBoundingClientRect ()
+            scaleX = canvas.width / rect.width
+            scaleY = canvas.height / rect.height
+            return (ev.clientX - rect.left) * scaleX, (ev.clientY - rect.top) * scaleY
 
-        document ["connect"].bind ("click", lambda ev: aio.run (connect (ev)))
+        def draw (ev):
+            global ctx, pointer
+            if pointer:
+                ts = window.timestamp ()
+                pos = getMousePos (ev)
+                ctx.lineTo (*pos)
+                ctx.stroke ()
+                document ["status"].text = f"Timestamp: {ts} Position: {pos}"
+        canvas.bind ("pointermove", draw)
+
+        def pointerdown (ev):
+            global canvas, ctx, pointer
+            rect = canvas.getBoundingClientRect ()
+            ctx.clearRect (0, 0, rect.width * canvas.width / rect.width, rect.height * canvas.height / rect.height)
+            ctx.beginPath ()
+            pointer = True
+            draw (ev)
+        canvas.bind ("pointerdown", pointerdown)
+        def pointerup (ev):
+            global pointer
+            pointer = False
+        canvas.bind ("pointerup", pointerup)
+        
+    </script>
+    <script>
+        function timestamp() {
+            return Math.round (performance.now() + performance.timeOrigin);
+        }
     </script>
 </body>
