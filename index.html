@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang = "en">
+<head>
+    <title>Physics Experiment</title>
+    <meta charset = "utf-8">
+    <script src = "https://cdn.jsdelivr.net/npm/brython@3/brython.min.js"></script>
+    <script src = "https://cdn.jsdelivr.net/npm/brython@3/brython_stdlib.js"></script>
+    <style>
+        * {
+            margin: 0px;
+            padding: 0px;
+            border: 0px;
+        }
+        body {
+            height: 100dvh;
+            width: 100dvw;
+            display: flex;
+            flex-direction: column;
+        }
+        input, button, h1, p {
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            padding: 5px 7px;
+            margin: 7px;
+            white-space: nowrap;
+        }
+        input, button {
+            border-radius: 0px;
+            text-decoration: none;
+            font-weight: normal;
+            background-color: #f8f8f8;
+            color: black;
+            -webkit-appearance: none;
+            border: 1px solid black;
+        }
+        div {
+            border: 7px solid coral;
+            display: flex;
+            flex-direction: row;
+        }
+        canvas {
+            touch-action: none;
+            flex: 1;
+        }
+    </style>
+    <div id="header">
+        <h1 style="font-size: 24px;">Physics Experiment</h1>
+        <button id="connect">Connect</button>
+        <p style="flex: 1; font-family: monospace;" id="status">Connected: False</p>
+    </div>
+    <canvas id="canvas"></canvas>
+    <script type = "text/python">
+        from browser import aio, ajax, document, html, window
+
+        async def connect (ev):
+            port = await window.navigator.serial.requestPort ()
+            await port.open ({
+                "baudRate": 115200,
+                "dataBits": 8,
+                "stopBits": 1,
+                "parity": "none",
+                "bufferSize": 1048576,
+                "flowControl": "none"
+            })
+            reader = port.readable.getReader ()
+
+            while True:
+                value, done = await reader.read ()
+                window.console.log (value)
+                if done:
+                    reader.releaseLock ()
+                    break
+            window.console.log (value)
+
+        document ["connect"].bind ("click", lambda ev: aio.run (connect (ev)))
+    </script>
+</body>
