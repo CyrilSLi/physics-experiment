@@ -49,15 +49,17 @@
     <div id="header">
         <h1 style="font-size: 24px;">Physics Experiment</h1>
         <button id="export">Export</button>
-        <p style="flex: 1; font-family: monospace;" id="status"></p>
+        <p style="flex: 1; font-family: monospace;" id="status">Pointer up</p>
     </div>
     <canvas id="canvas"></canvas>
     <script type = "text/python">
-        from browser import aio, ajax, document, html, window
-        global canvas, ctx, pointer
+        from browser import document, window
+        import json
+        global canvas, ctx, pointer, points
         canvas = document ["canvas"]
         ctx = canvas.getContext ("2d")
         pointer = False
+        points = []
 
         canvas.attrs ["width"] = canvas.getBoundingClientRect ().width
         canvas.attrs ["height"] = canvas.getBoundingClientRect ().height
@@ -73,27 +75,36 @@
             return (ev.clientX - rect.left) * scaleX, (ev.clientY - rect.top) * scaleY
 
         def draw (ev):
-            global ctx, pointer
+            global ctx, pointer, points
             if pointer:
                 ts = window.timestamp ()
                 pos = getMousePos (ev)
                 ctx.lineTo (*pos)
                 ctx.stroke ()
-                document ["status"].text = f"Timestamp: {ts} Position: {pos}"
+                points.extend ((pos [0], pos [1], ts))
         canvas.bind ("pointermove", draw)
 
         def pointerdown (ev):
-            global canvas, ctx, pointer
+            global canvas, ctx, pointer, points
+            points = []
             rect = canvas.getBoundingClientRect ()
             ctx.clearRect (0, 0, rect.width * canvas.width / rect.width, rect.height * canvas.height / rect.height)
             ctx.beginPath ()
             pointer = True
             draw (ev)
+            document ["status"].text = "Pointer down"
         canvas.bind ("pointerdown", pointerdown)
         def pointerup (ev):
-            global pointer
+            global pointer, points
             pointer = False
+            document ["status"].text = "Pointer up, " + str (len (points)) + " points"
         canvas.bind ("pointerup", pointerup)
+
+        def export (ev):
+            global points
+            window.navigator.clipboard.writeText (",".join (map (str, points)))
+            document ["status"].text = "Exported " + str (len (points)) + " points to clipboard"
+        document ["export"].bind ("click", export)
         
     </script>
     <script>
