@@ -1,4 +1,4 @@
-import serial, threading, time
+import serial, subprocess, threading, time
 from getpass import getpass
 from math import atan2, degrees, sqrt
 
@@ -37,19 +37,24 @@ avg_y = sum (i [2] for i in old_data) / len (old_data)
 print ("Average values:", avg_x, avg_y)
 
 points = []
+old_ts = 0
 input ("Start recording acceleration? ")
 try:
     while True:
         data = read_data ()
         ts = time.time_ns ()
-        if data:
+        if ts - old_ts < 1000000:
+            continue
+        elif data:
             heading = round (degrees (atan2 (data [0] - avg_x, data [2] - avg_y)))
             magnitude = round (sqrt ((data [0] - avg_x) ** 2 + (data [2] - avg_y) ** 2))
             if magnitude > threshold:
                 points.extend ((heading, magnitude, ts // 1000000))
+                old_ts = ts
                 print ("+", end = "", flush = True)
 except KeyboardInterrupt:
     pass
 
 print (f"\nRecording done, {len (points)} points recorded.")
-pos_points = getpass ("Please paste the list of position points: ").strip ().split (",")
+subprocess.run (["wl-copy", "--", ",".join (map (str, points))])
+print ("Data copied to clipboard.")

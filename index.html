@@ -33,7 +33,7 @@
             -webkit-appearance: none;
             border: 1px solid black;
         }
-        div {
+        #header {
             border: 7px solid coral;
             display: flex;
             flex-direction: row;
@@ -43,15 +43,59 @@
             user-select: none;
             flex: 1;
         }
+        #graph {
+            flex: 1;
+            display: grid;
+            margin: 5px;
+            gap: 5px;
+            grid-template-areas:
+                "a b c"
+                "d e f"
+            ;
+            grid-auto-rows: 1fr;
+            grid-auto-columns: 1fr;
+        }
+        .grid-div {
+            display: flex;
+            flex-direction: column;
+            background-color: #f8f8f8;
+        }
     </style>
 </head>
 <body onload="brython (0)">
     <div id="header">
         <h1 style="font-size: 24px;">Physics Experiment</h1>
         <button id="export">Export</button>
+        <button id="visualize">Visualize</button>
         <p style="flex: 1; font-family: monospace;" id="status">Pointer up</p>
     </div>
     <canvas id="canvas"></canvas>
+    <div id="graph">
+        <div class="grid-div">
+            <p id="orig-text">Original path</p>
+            <canvas id="orig" class="grid-canvas"></canvas>
+        </div>
+        <div class="grid-div">
+            <p id="speed-text">Speed</p>
+            <canvas id="speed" class="grid-canvas"></canvas>
+        </div>
+        <div class="grid-div">
+            <p id="velocity-text">Velocity</p>
+            <canvas id="velocity" class="grid-canvas"></canvas>
+        </div>
+        <div class="grid-div">
+            <p id="distance-text">Distance</p>
+            <canvas id="distance" class="grid-canvas"></canvas>
+        </div>
+        <div class="grid-div">
+            <p id="displacement-text">Displacement</p>
+            <canvas id="displacement" class="grid-canvas"></canvas>
+        </div>
+        <div class="grid-div">
+            <p id="acceleration-text">Acceleration</p>
+            <canvas id="acceleration" class="grid-canvas"></canvas>
+        </div>
+    </div>
     <script type = "text/python">
         from browser import document, window
         import json
@@ -61,8 +105,21 @@
         pointer = False
         points = []
 
-        canvas.attrs ["width"] = canvas.getBoundingClientRect ().width
-        canvas.attrs ["height"] = canvas.getBoundingClientRect ().height
+        document ["graph"].style.display = "none"
+        canvasWidth, canvasHeight = canvas.getBoundingClientRect ().width, canvas.getBoundingClientRect ().height
+        document ["graph"].style.display = ""
+        for i in document.select (".grid-canvas"):
+            print (i.getBoundingClientRect ().width, canvasWidth, i.getBoundingClientRect ().height, canvasHeight)
+            i.attrs ["width"] = i.getBoundingClientRect ().width
+            i.attrs ["height"] = canvasHeight / canvasWidth * i.getBoundingClientRect ().width
+            i.lineWidth = 5
+            i.linecap = "round"
+            i.strokeStyle = "black"
+            i.ctx = i.getContext ("2d")
+        document ["graph"].style.display = "none"
+        
+        canvas.attrs ["width"] = canvasWidth
+        canvas.attrs ["height"] = canvasHeight
         ctx.lineWidth = 2
         ctx.linecap = "round"
         ctx.strokeStyle = "black"
@@ -84,12 +141,15 @@
                 points.extend ((pos [0], pos [1], ts))
         canvas.bind ("pointermove", draw)
 
+        def canvasClear (el, ctx):
+            rect = el.getBoundingClientRect ()
+            ctx.clearRect (0, 0, rect.width * el.width / rect.width, rect.height * el.height / rect.height)
+            ctx.beginPath ()
+
         def pointerdown (ev):
             global canvas, ctx, pointer, points
             points = []
-            rect = canvas.getBoundingClientRect ()
-            ctx.clearRect (0, 0, rect.width * canvas.width / rect.width, rect.height * canvas.height / rect.height)
-            ctx.beginPath ()
+            canvasClear (canvas, ctx)
             pointer = True
             draw (ev)
             document ["status"].text = "Pointer down"
@@ -97,7 +157,7 @@
         def pointerup (ev):
             global pointer, points
             pointer = False
-            document ["status"].text = "Pointer up, " + str (len (points)) + " points"
+            document ["status"].text = "Pointer up, " + str (len (points) // 3) + " points"
         canvas.bind ("pointerup", pointerup)
 
         def export (ev):
@@ -105,6 +165,38 @@
             window.navigator.clipboard.writeText (",".join (map (str, points)))
             document ["status"].text = "Exported " + str (len (points)) + " points to clipboard"
         document ["export"].bind ("click", export)
+
+        def visualize (ev):
+            global points
+            del document ["canvas"], document ["visualize"]
+            document ["graph"].style.display = ""
+            accel = window.prompt ("Paste acceleration data if available:", "")
+            accel = list (map (int, accel.strip ().split (",")))
+            min_ts, max_ts = max (points [2], accel [2]), min (points [-1], accel [-1]) - 1
+            print (min_ts, max_ts)
+
+            # {ts: [x, y, accelHeading, accelMagnitude]}
+            pointdict = {}
+            for _ in range (2): # Do the same thing to coordinates and acceleration
+                for i in range (0, len (points) - 3, 3):
+                    for j in range (points [i + 2], points [i + 5]):
+                        if j < min_ts or j > max_ts:
+                            continue
+                        x1, y1, x2, y2 = points [i], points [i + 1], points [i + 3], points [i + 4]
+                        progress = (j - points [i + 2]) / (points [i + 5] - points [i + 2]) # 0 to 1
+                        pointdict.setdefault (j, []).extend (( # Interpolate between x1, y1 and x2, y2
+                            x1 + (x2 - x1) * progress,
+                            y1 + (y2 - y1) * progress 
+                        ))
+                points = accel
+
+            csv = "ts,x,y,accelHeading,accelMagnitude\n"
+            for i in range (min_ts, max_ts + 1):
+                i = str (i)
+                csv += f"{i},{pointdict [i][0]},{pointdict [i][1]},{pointdict [i][2]},{pointdict [i][3]}\n"
+            window.console.log (csv)
+
+        document ["visualize"].bind ("click", visualize)
         
     </script>
     <script>
