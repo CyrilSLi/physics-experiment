@@ -163,14 +163,6 @@
             ctx.lineTo (pos [0] + magnitude * math.cos (math.radians (heading)), pos [1] + magnitude * math.sin (math.radians (heading)))
             ctx.stroke ()
 
-        def drawScalar (el, ctx, scalar):
-            global graphWidth, graphHeight
-            canvasClear (el, ctx)
-            pos = (graphWidth / 2, graphHeight - 10)
-            ctx.moveTo (*pos)
-            ctx.lineTo (pos [0] + scalar, pos [1])
-            ctx.stroke ()
-
         def pointerdown (ev):
             global canvas, ctx, pointer, points
             if points:
