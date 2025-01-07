@@ -222,12 +222,9 @@
             document ["displacement-var"].text = f"{displacement:.2f} px at {math.degrees (math.atan2 (y - min_y, x - min_x)):.2f}°"
             document ["velocity-var"].text = f"{displacement / (ts - min_ts):.2f} px/ms at {math.degrees (math.atan2 (y - min_y, x - min_x)):.2f}°"
 
-
             # drawVector (document ["acceleration"], document ["acceleration"].ctx, (ts / 100) % 360, 50) # test
             drawVector (document ["acceleration"], document ["acceleration"].ctx, points [str (ts)] [2], points [str (ts)] [3] * scales [5])
             document ["acceleration-var"].text = f"{points [str (ts)] [3]:.2f} milli-g at {points [str (ts)] [2]:.2f}°"
-
-            
 
             window.setTimeout (frame, 10, ts + 1)
 
