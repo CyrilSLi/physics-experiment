@@ -76,47 +76,56 @@
             <canvas id="orig" class="grid-canvas"></canvas>
         </div>
         <div class="grid-div">
-            <p id="speed-text">Speed</p>
+            <p id="speed-text">Speed: <span id="speed-var"></span></p>
             <canvas id="speed" class="grid-canvas"></canvas>
         </div>
         <div class="grid-div">
-            <p id="velocity-text">Velocity</p>
+            <p id="velocity-text">Average Velocity: <span id="velocity-var"></span></p>
             <canvas id="velocity" class="grid-canvas"></canvas>
         </div>
         <div class="grid-div">
-            <p id="distance-text">Distance</p>
+            <p id="distance-text">Total Distance: <span id="distance-var"></span></p>
             <canvas id="distance" class="grid-canvas"></canvas>
         </div>
         <div class="grid-div">
-            <p id="displacement-text">Displacement</p>
+            <p id="displacement-text">Average Displacement: <span id="displacement-var"></span></p>
             <canvas id="displacement" class="grid-canvas"></canvas>
         </div>
         <div class="grid-div">
-            <p id="acceleration-text">Acceleration</p>
+            <p id="acceleration-text">Acceleration: <span id="acceleration-var"></span></p>
             <canvas id="acceleration" class="grid-canvas"></canvas>
         </div>
     </div>
     <script type = "text/python">
         from browser import document, window
-        import json
+        import math
         global canvas, ctx, pointer, points
         canvas = document ["canvas"]
         ctx = canvas.getContext ("2d")
         pointer = False
         points = []
+        min_ts, max_ts = 0, 0
 
         document ["graph"].style.display = "none"
         canvasWidth, canvasHeight = canvas.getBoundingClientRect ().width, canvas.getBoundingClientRect ().height
+        graphWidth, graphHeight, scales = 0, 0, []
         document ["graph"].style.display = ""
         for i in document.select (".grid-canvas"):
+            graphWidth += i.getBoundingClientRect ().width
+            graphHeight += i.getBoundingClientRect ().height
             print (i.getBoundingClientRect ().width, canvasWidth, i.getBoundingClientRect ().height, canvasHeight)
             i.attrs ["width"] = i.getBoundingClientRect ().width
             i.attrs ["height"] = canvasHeight / canvasWidth * i.getBoundingClientRect ().width
-            i.lineWidth = 5
-            i.linecap = "round"
-            i.strokeStyle = "black"
             i.ctx = i.getContext ("2d")
+            i.ctx.lineWidth = 5
+            i.ctx.linecap = "round"
+            i.ctx.strokeStyle = "black"
+            i.ctx.beginPath ()
+        document ["orig"].ctx.lineWidth = 2
         document ["graph"].style.display = "none"
+        graphWidth /= 6 # Average width
+        graphHeight /= 6 # Average height
+        window.console.log (graphWidth, graphHeight)
         
         canvas.attrs ["width"] = canvasWidth
         canvas.attrs ["height"] = canvasHeight
@@ -146,10 +155,29 @@
             ctx.clearRect (0, 0, rect.width * el.width / rect.width, rect.height * el.height / rect.height)
             ctx.beginPath ()
 
+        def drawVector (el, ctx, heading, magnitude):
+            global graphWidth, graphHeight
+            canvasClear (el, ctx)
+            pos = (graphWidth / 2, graphHeight / 2)
+            ctx.moveTo (*pos)
+            ctx.lineTo (pos [0] + magnitude * math.cos (math.radians (heading)), pos [1] + magnitude * math.sin (math.radians (heading)))
+            ctx.stroke ()
+
+        def drawScalar (el, ctx, scalar):
+            global graphWidth, graphHeight
+            canvasClear (el, ctx)
+            pos = (graphWidth / 2, graphHeight - 10)
+            ctx.moveTo (*pos)
+            ctx.lineTo (pos [0] + scalar, pos [1])
+            ctx.stroke ()
+
         def pointerdown (ev):
             global canvas, ctx, pointer, points
-            points = []
-            canvasClear (canvas, ctx)
+            if points:
+                window.alert ("Confirm clear?")
+                points = []
+                canvasClear (canvas, ctx)
+                return
             pointer = True
             draw (ev)
             document ["status"].text = "Pointer down"
@@ -166,8 +194,53 @@
             document ["status"].text = "Exported " + str (len (points)) + " points to clipboard"
         document ["export"].bind ("click", export)
 
+        distance = 0
+        def frame (ts):
+            global distance, min_ts, max_ts, points, scales
+            if ts == max_ts:
+                document ["status"].text = "Finished"
+                distance = 0
+                canvasClear (document ["orig"], document ["orig"].ctx)
+                window.setTimeout (frame, 5000, min_ts + 1) # Reset after 5 seconds
+                return
+            document ["status"].text = f"Timestamp: {ts}"
+            x, y = points [str (ts)] [ : 2]
+            x, y = x * scales [0], y * scales [1]
+            document ["orig"].ctx.lineTo (x, y)
+            document ["orig"].ctx.stroke ()
+            min_x, min_y = points [str (min_ts)] [ : 2]
+            min_x, min_y = min_x * scales [0], min_y * scales [1]
+            prev_x, prev_y = points [str (ts - 1)] [ : 2]
+            prev_x, prev_y = prev_x * scales [0], prev_y * scales [1]
+            canvasClear (document ["speed"], document ["speed"].ctx)
+            document ["speed"].ctx.moveTo (prev_x, prev_y)
+            document ["speed"].ctx.lineTo (x, y)
+            document ["speed"].ctx.stroke ()
+            speed = math.sqrt ((x - prev_x) ** 2 + (y - prev_y) ** 2)
+            document ["speed-var"].text = f"{speed:.2f} px/ms"
+            distance += speed
+            document ["distance-var"].text = f"{distance:.2f} px"
+
+            for i in ("displacement", "velocity"):
+                canvasClear (document [i], document [i].ctx)
+                document [i].ctx.moveTo (min_x, min_y)
+                document [i].ctx.lineTo (x, y)
+                document [i].ctx.stroke ()
+            displacement = math.sqrt ((x - min_x) ** 2 + (y - min_y) ** 2)
+            document ["displacement-var"].text = f"{displacement:.2f} px at {math.degrees (math.atan2 (y - min_y, x - min_x)):.2f}°"
+            document ["velocity-var"].text = f"{displacement / (ts - min_ts):.2f} px/ms at {math.degrees (math.atan2 (y - min_y, x - min_x)):.2f}°"
+
+
+            # drawVector (document ["acceleration"], document ["acceleration"].ctx, (ts / 100) % 360, 50) # test
+            drawVector (document ["acceleration"], document ["acceleration"].ctx, points [str (ts)] [2], points [str (ts)] [3] * scales [5])
+            document ["acceleration-var"].text = f"{points [str (ts)] [3]:.2f} milli-g at {points [str (ts)] [2]:.2f}°"
+
+            
+
+            window.setTimeout (frame, 10, ts + 1)
+
         def visualize (ev):
-            global points
+            global min_ts, max_ts, points, scales, canvasWidth, canvasHeight, graphWidth, graphHeight
             del document ["canvas"], document ["visualize"]
             document ["graph"].style.display = ""
             accel = window.prompt ("Paste acceleration data if available:", "")
@@ -177,10 +250,13 @@
 
             # {ts: [x, y, accelHeading, accelMagnitude]}
             pointdict = {}
-            for _ in range (2): # Do the same thing to coordinates and acceleration
+            for x in range (2): # Do the same thing to coordinates and acceleration
                 for i in range (0, len (points) - 3, 3):
                     for j in range (points [i + 2], points [i + 5]):
                         if j < min_ts or j > max_ts:
+                            continue
+                        if x == 1: # no interpolation for acceleration
+                            pointdict.setdefault (j, []).extend (points [i : i + 2])
                             continue
                         x1, y1, x2, y2 = points [i], points [i + 1], points [i + 3], points [i + 4]
                         progress = (j - points [i + 2]) / (points [i + 5] - points [i + 2]) # 0 to 1
@@ -188,13 +264,24 @@
                             x1 + (x2 - x1) * progress,
                             y1 + (y2 - y1) * progress 
                         ))
-                points = accel
+                points = accel.copy ()
 
             csv = "ts,x,y,accelHeading,accelMagnitude\n"
             for i in range (min_ts, max_ts + 1):
                 i = str (i)
                 csv += f"{i},{pointdict [i][0]},{pointdict [i][1]},{pointdict [i][2]},{pointdict [i][3]}\n"
             window.console.log (csv)
+
+            points = pointdict
+            scales = [
+                graphWidth / canvasWidth,
+                graphHeight / canvasHeight,
+                None,
+                (min (graphWidth, graphHeight) / 2 - 10) / max ((math.sqrt ((j [0] - i [0]) ** 2 + (j [1] - i [1]) ** 2) for i, j in zip (list (points.values ()), list (points.values ()) [1 : ]))),
+                None,
+                (min (graphWidth, graphHeight) / 2 - 10) / max (points [i] [3] for i in points) # Normalize
+            ]
+            frame (min_ts + 1)
 
         document ["visualize"].bind ("click", visualize)
         

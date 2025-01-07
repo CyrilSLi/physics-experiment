@@ -33,10 +33,12 @@ sample.join ()
 
 print ("Sampling idle condition done.")
 avg_x = sum (i [0] for i in old_data) / len (old_data)
-avg_y = sum (i [2] for i in old_data) / len (old_data)
+avg_y = sum (i [1] for i in old_data) / len (old_data)
 print ("Average values:", avg_x, avg_y)
 
 points = []
+headings = []
+max_headings = 10
 old_ts = 0
 input ("Start recording acceleration? ")
 try:
@@ -46,10 +48,10 @@ try:
         if ts - old_ts < 1000000:
             continue
         elif data:
-            heading = round (degrees (atan2 (data [0] - avg_x, data [2] - avg_y)))
-            magnitude = round (sqrt ((data [0] - avg_x) ** 2 + (data [2] - avg_y) ** 2))
+            heading = degrees (atan2 (data [1] - avg_y, data [0] - avg_x))
+            magnitude = round (sqrt ((data [0] - avg_x) ** 2 + (data [1] - avg_y) ** 2))
             if magnitude > threshold:
-                points.extend ((heading, magnitude, ts // 1000000))
+                points.extend ((round (heading), magnitude, ts // 1000000))
                 old_ts = ts
                 print ("+", end = "", flush = True)
 except KeyboardInterrupt:
