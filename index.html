@@ -92,7 +92,7 @@
             <canvas id="displacement" class="grid-canvas"></canvas>
         </div>
         <div class="grid-div">
-            <p id="acceleration-text">Acceleration: <span id="acceleration-var"></span></p>
+            <p id="acceleration-text">Acceleration (N/A): <span id="acceleration-var"></span></p>
             <canvas id="acceleration" class="grid-canvas"></canvas>
         </div>
     </div>
@@ -166,10 +166,10 @@
         def pointerdown (ev):
             global canvas, ctx, pointer, points
             if points:
-                window.alert ("Confirm clear?")
+                # window.alert ("Confirm clear?")
                 points = []
                 canvasClear (canvas, ctx)
-                return
+                # return
             pointer = True
             draw (ev)
             document ["status"].text = "Pointer down"
@@ -222,9 +222,9 @@
             document ["displacement-var"].text = f"{displacement:.2f} px at {math.degrees (math.atan2 (y - min_y, x - min_x)):.2f}°"
             document ["velocity-var"].text = f"{displacement / (ts - min_ts):.2f} px/ms at {math.degrees (math.atan2 (y - min_y, x - min_x)):.2f}°"
 
-            # drawVector (document ["acceleration"], document ["acceleration"].ctx, (ts / 100) % 360, 50) # test
+            """ # drawVector (document ["acceleration"], document ["acceleration"].ctx, (ts / 100) % 360, 50) # test
             drawVector (document ["acceleration"], document ["acceleration"].ctx, points [str (ts)] [2], points [str (ts)] [3] * scales [5])
-            document ["acceleration-var"].text = f"{points [str (ts)] [3]:.2f} milli-g at {points [str (ts)] [2]:.2f}°"
+            document ["acceleration-var"].text = f"{points [str (ts)] [3]:.2f} milli-g at {points [str (ts)] [2]:.2f}°" """
 
             window.setTimeout (frame, 10, ts + 1)
 
@@ -232,14 +232,15 @@
             global min_ts, max_ts, points, scales, canvasWidth, canvasHeight, graphWidth, graphHeight
             del document ["canvas"], document ["visualize"]
             document ["graph"].style.display = ""
-            accel = window.prompt ("Paste acceleration data if available:", "")
+            """ accel = window.prompt ("Paste acceleration data if available:", "")
             accel = list (map (int, accel.strip ().split (",")))
-            min_ts, max_ts = max (points [2], accel [2]), min (points [-1], accel [-1]) - 1
+            min_ts, max_ts = max (points [2], accel [2]), min (points [-1], accel [-1]) - 1 """
+            min_ts, max_ts = points [2], points [-1] - 1
             print (min_ts, max_ts)
 
             # {ts: [x, y, accelHeading, accelMagnitude]}
             pointdict = {}
-            for x in range (2): # Do the same thing to coordinates and acceleration
+            for x in range (1): # Do the same thing to coordinates and acceleration   # Disable acceleration
                 for i in range (0, len (points) - 3, 3):
                     for j in range (points [i + 2], points [i + 5]):
                         if j < min_ts or j > max_ts:
@@ -253,12 +254,12 @@
                             x1 + (x2 - x1) * progress,
                             y1 + (y2 - y1) * progress 
                         ))
-                points = accel.copy ()
+                # points = accel.copy ()
 
             csv = "ts,x,y,accelHeading,accelMagnitude\n"
             for i in range (min_ts, max_ts + 1):
                 i = str (i)
-                csv += f"{i},{pointdict [i][0]},{pointdict [i][1]},{pointdict [i][2]},{pointdict [i][3]}\n"
+                csv += f"{i},{pointdict [i][0]},{pointdict [i][1]}\n" # ,{pointdict [i][2]},{pointdict [i][3]}\n"
             window.console.log (csv)
 
             points = pointdict
@@ -267,8 +268,8 @@
                 graphHeight / canvasHeight,
                 None,
                 (min (graphWidth, graphHeight) / 2 - 10) / max ((math.sqrt ((j [0] - i [0]) ** 2 + (j [1] - i [1]) ** 2) for i, j in zip (list (points.values ()), list (points.values ()) [1 : ]))),
-                None,
-                (min (graphWidth, graphHeight) / 2 - 10) / max (points [i] [3] for i in points) # Normalize
+                None
+                # (min (graphWidth, graphHeight) / 2 - 10) / max (points [i] [3] for i in points) # Normalize
             ]
             frame (min_ts + 1)
 
